@@ -1,0 +1,441 @@
+<%- include('../partials/adminhead') %>
+
+<body>
+  <%- include('../partials/loader') %>
+  <!-- admin-Sidebar -->
+  <div class="admin-sidebar" id="admin-sidebar">
+    <h4 class="text-white mb-4">Border Monitoring</h4>
+    <div class="mb-4">
+      <i class="bi bi-person-circle me-2"></i><%= full_name %>
+    </div>
+    <a href="/admin/home"><i class="bi bi-grid"></i> Home</a>
+    <a href="/admin/upload" class="active"><i class="bi bi-gem"></i> Upload</a>
+    <a href="/admin/publish"><i class="bi bi-gem"></i> Publish</a>
+    <a href="/admin/manage"><i class="bi bi-person"></i> Manage</a>
+    <a href="/admin/update-password"><i class="bi bi-key"></i> Update Password</a>
+    <a href="" id="adminLogout"><i class="bi bi-journal-text"></i> Logout</a>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content" id="mainContent">
+    <div class="themed-box topbar d-flex flex-wrap justify-content-between align-items-center gap-2 themed-box">
+      <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-list fs-3 cursor-pointer" id="toggleSidebarBtn" style="cursor: pointer;"></i>
+        <h4 class="mb-0">Dashboard</h4>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+
+        <i class="bi bi-bell me-2"></i>
+        <i class="bi bi-gear"></i>
+      </div>
+    </div>
+
+    <!-- <main class="main"> -->
+
+
+    <main class="main p-4">
+
+      <div class="row g-3 align-items-end mb-3">
+
+        <div class="col-lg-6 col-md-8 d-flex align-items-center mb-3">
+          <label class="form-label d-block me-2 mb-0">Status</label>
+          <div class="btn-group" role="group" aria-label="Upload selection">
+            <input type="radio" class="btn-check" name="formOption" id="vectorOption" value="vector" checked>
+            <label class="btn btn-outline-secondary" for="vectorOption">Vector Upload</label>
+
+            <input type="radio" class="btn-check" name="formOption" id="rasterOption" value="raster">
+            <label class="btn btn-outline-secondary" for="rasterOption">Raster Upload</label>
+
+            <input type="radio" class="btn-check" name="formOption" id="manualRasterOption" value="manualRaster">
+            <label class="btn btn-outline-secondary" for="manualRasterOption">Manual Raster Entry</label>
+
+            <input type="radio" class="btn-check" name="formOption" id="metadataOption" value="metadata">
+            <label class="btn btn-outline-secondary" for="metadataOption">Append Meta Data</label>
+
+            <input type="radio" class="btn-check" name="formOption" id="categoriesOption" value="categories">
+            <label class="btn btn-outline-secondary" for="categoriesOption">Manage Categories</label>
+          </div>
+        </div>
+
+        <!-- Upload Form -->
+        <form id="vectorUploadForm" action="" method="POST" class="form-active themed-box p-4 rounded">
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label for="uploaded_file" class="form-label">Select File [only zipped shapefile or
+                tiff]</label>
+              <input type="file" class="form-control" id="uploaded_file" name="uploaded_file" accept=".zip ,.tif" required>
+            </div>
+            <div class="col-6 mb-3">
+              <label for="file_type" class="form-label">Select Type</label>
+              <select class="form-control" id="file_type" name="file_type" required>
+                <option value="vector">zipped shapefile</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label for="theme" class="form-label">Select Theme</label>
+              <select class="form-control" id="theme" name="theme" required>
+                <option value="">Select</option>
+                <option value="administratives">Administratives</option>
+                <option value="aoi">AOI</option>
+                <option value="lulc">LULC</option>
+                <option value="lulcchange">LULC Changes</option>
+                <option value="hotspots">HOTSPOT</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="file_name" class="form-label">File Name</label>
+              <input type="text" class="form-control" id="file_name" name="file_name" pattern="[a-z0-9_]+" placeholder="e.g., lulc_assam_2025" required>
+              <div class="invalid-feedback">
+                Filename can only contain lowercase letters, numbers, and underscores.
+              </div>
+            </div>
+
+          </div>
+          <div class="row">
+
+            <div class="col-md-6 mb-3">
+              <label for="srid" class="form-label">SRID (Spatial Reference ID)</label>
+              <input type="text" class="form-control" id="srid" name="srid" value="4326" placeholder="e.g., 4326" required>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button type="submit" class="btn btn-success">Upload</button>
+          </div>
+        </form>
+
+
+        <div id="rasterUploadForm" class="form-hidden themed-box p-4 rounded">
+  <div class="row">
+    <div class="col-6 mb-3">
+      <label for="upload_raster_file" class="form-label">Select File (GeoTIFF)</label>
+      <input
+        type="file"
+        class="form-control"
+        id="upload_raster_file"
+        accept=".tif"
+      />
+    </div>
+
+    <div class="col-6 mb-3">
+      <label for="file_type_raster" class="form-label">Select Type</label>
+      <select class="form-control" id="file_type_raster" disabled>
+        <option value="raster" selected>GeoTIFF</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-6 mb-3">
+      <label for="raster_theme" class="form-label">Theme</label>
+      <select class="form-control" id="raster_theme">
+        <option value="raster">Raster</option>
+      </select>
+    </div>
+
+    <div class="col-6 mb-3">
+      <label for="raster_file_name" class="form-label">File Name</label>
+      <input
+        type="text"
+        class="form-control"
+        id="raster_file_name"
+        pattern="[a-z0-9_]+"
+        placeholder="lulc_assam_2025"
+      />
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button type="button" class="btn btn-success" id="rasterUploadBtn">
+      Upload
+    </button>
+  </div>
+</div>
+
+
+        <!-- ══════════════════════════════════════════════════
+             Manual Raster Entry Form
+             For .tif files copied to untracked_RASTER_DIR via pscp/scp
+             ══════════════════════════════════════════════════ -->
+        <div id="manualRasterForm" class="form-hidden themed-box p-4 rounded">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="mb-0">
+              <i class="bi bi-hdd-stack me-2 text-warning"></i>
+              Register Raster File
+            </h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshUntrackedBtn" title="Refresh file list">
+              <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+          </div>
+          <p class="text-muted small mb-3">
+            Select a <code>.tif</code> file from the incoming directory, give it a catalog name, and
+            click <strong>Register to Catalog</strong> — the file will be moved to the raster store and registered.
+          </p>
+
+          <div class="row">
+            <!-- 1. Source file from untracked_RASTER_DIR -->
+            <div class="col-6 mb-3">
+              <label for="manual_source_file" class="form-label">
+                Source File <span class="text-danger">*</span>
+                <small class="text-muted">(from incoming directory)</small>
+              </label>
+              <select class="form-control" id="manual_source_file">
+                <option value="">— Loading… —</option>
+              </select>
+              <div id="untrackedStatus" class="form-text text-muted mt-1"></div>
+            </div>
+
+            <!-- 2. Type — fixed GeoTIFF -->
+            <div class="col-6 mb-3">
+              <label for="manual_file_type" class="form-label">Select Type</label>
+              <select class="form-control" id="manual_file_type" disabled>
+                <option value="raster" selected>GeoTIFF</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <!-- 3. Theme — fixed Raster -->
+            <div class="col-6 mb-3">
+              <label for="manual_theme" class="form-label">Theme</label>
+              <select class="form-control" id="manual_theme" disabled>
+                <option value="raster" selected>Raster</option>
+              </select>
+            </div>
+
+            <!-- 4. Catalog filename — user input -->
+            <div class="col-6 mb-3">
+              <label for="manual_file_name" class="form-label">
+                File Name <span class="text-danger">*</span>
+                <small class="text-muted">(catalog name, no extension)</small>
+              </label>
+              <input
+                type="text"
+                class="form-control"
+                id="manual_file_name"
+                pattern="[a-zA-Z0-9_]+"
+                placeholder="e.g., lulc_assam_2025"
+                autocomplete="off"
+              />
+              <div class="form-text text-muted">Lowercase letters, numbers and underscores only.</div>
+            </div>
+          </div>
+
+          <div class="button-group">
+            <button type="button" class="btn btn-success" id="manualRasterSubmitBtn">
+              <i class="bi bi-database-add me-1"></i> Register to Catalog
+            </button>
+          </div>
+        </div>
+
+
+
+        <!-- Metadata Form -->
+
+        <form id="metadataForm" action="/admin/metadata" method="POST" class="form-hidden themed-box p-4 rounded">
+          <div class="progress">
+            <div class="progress-bar" role="progressbar" style="width: 33.33%" aria-valuenow="33.33" aria-valuemin="0" aria-valuemax="100">Step 1 of 3</div>
+          </div>
+
+          <!-- Step 1: Identification -->
+          <div class="form-step active">
+            <h4>Identification</h4>
+            <div class="row">
+              <div class="col-6 mb-3">
+
+                <label for="meta_file_name">File Name</label>
+                <select id="meta_file_name" class="form-control" name="meta_file_name">
+                  <option value="">Select File Name</option>
+                  <% catalogItems.forEach(function(item) { %>
+                  <option value="<%=item.file_name%>">
+                    <%=item.file_name%>
+                  </option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="title" class="form-label">Title*</label>
+                <input type="text" class="form-control" id="title" name="title" required>
+              </div>
+
+
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="spatial_coverage" class="form-label">Spatial / Geographical Coverage
+                  Area*</label>
+                <input type="text" class="form-control" id="spatial_coverage" name="spatial_coverage">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="display_date" class="form-label">Year
+                  Year For Categorization*</label>
+                <input type="text" class="form-control" id="display_date" name="display_date" placeholder="e.g., 2025">
+              </div>
+              
+
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="public_access_level" class="form-label">Public Access Level</label>
+                <input type="text" class="form-control" id="public_access_level" name="public_access_level" value="Public">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="meta-theme" class="form-label">Theme/Topic Category</label>
+                <input type="text" class="form-control" id="meta-theme" name="meta-theme" readonly>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label for="meta_category_id" class="form-label">Hierarchical Category</label>
+                <select class="form-select" id="meta_category_id" name="meta_category_id">
+                  <option value="">Select Category (None)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="citation" class="form-label">Citation</label>
+                <input type="text" class="form-control" id="citation" name="citation">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="source_date" class="form-label">Source date*</label>
+                <input type="date" class="form-control" id="source_date" name="source_date" required>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="meta-filetype" class="form-label">File Type</label>
+                <input type="text" class="form-control" id="meta-filetype" name="meta-filetype" readonly>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="group_visibility" class="form-label">Group Content Visibility</label>
+                <select class="form-select" id="group_visibility" name="group_visibility">
+                  <option value="Public" selected>Public</option>
+                  <option value="Private">Private</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button type="button" class="btn btn-primary next-btn">Next</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Contact & Quality -->
+          <div class="form-step">
+            <h4>Descriptive and Quality Information</h4>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="data_abstract" class="form-label">Data Identification Abstract</label>
+                <input type="text" class="form-control" id="data_abstract" name="data_abstract">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="area_of_interest" class="form-label">Area of Interest</label>
+                <input type="text" class="form-control" id="area_of_interest" name="area_of_interest">
+              </div>
+            </div>
+
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="metadata_date" class="form-label">Metadata Date Stamp*</label>
+                <input type="date" class="form-control" id="metadata_date" name="metadata_date">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="data_quality" class="form-label">Data Quality</label>
+                <input type="text" class="form-control" id="data_quality" name="data_quality" value="High resolution data with minimal errors">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="language" class="form-label">Dataset Language</label>
+                <input type="text" class="form-control" id="language" name="language" value="English">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="publisher" class="form-label">Publisher</label>
+                <input type="text" class="form-control" id="publisher" name="publisher">
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button type="button" class="btn btn-secondary prev-btn">Previous</button>
+              <button type="button" class="btn btn-primary next-btn">Next</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Metadata Information -->
+          <div class="form-step">
+            <h4>Spatial Reference Information</h4>
+            <div class="row">
+
+              <div class="col-md-6 mb-3">
+                <label for="projection" class="form-label">Projection Information</label>
+                <input type="text" class="form-control" id="projection" name="projection" value="GCS, WGS 1984">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="scale" class="form-label">Scale</label>
+                <input type="text" class="form-control" id="scale" name="scale" value="" placeholder="eg. 1:50000">
+              </div>
+            </div>
+
+            <div class="button-group">
+              <button type="button" class="btn btn-secondary prev-btn">Previous</button>
+              <button type="submit" class="btn btn-success">Submit</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Categories Management Form -->
+        <div id="categoriesForm" class="form-hidden themed-box p-4 rounded">
+          <h4 class="mb-3">Manage Categories Hierarchy</h4>
+          <hr />
+          <div class="row">
+            <!-- Left Side: Category Tree -->
+            <div class="col-md-6 mb-3">
+              <h5 class="mb-3">Category Hierarchy</h5>
+              <div id="categoryTreeContainer" class="p-3 rounded" style="background-color: #0f1116; border: 1px solid #2e3548; max-height: 450px; overflow-y: auto;">
+                Loading categories...
+              </div>
+            </div>
+            
+            <!-- Right Side: Category Actions Form -->
+            <div class="col-md-6 mb-3">
+              <h5 id="actionFormTitle">Create New Category</h5>
+              <form id="categoryActionForm">
+                <input type="hidden" id="cat_id" value="">
+                
+                <div class="mb-3">
+                  <label for="cat_name" class="form-label">Category Name</label>
+                  <input type="text" class="form-control" id="cat_name" placeholder="e.g., Sub-theme Name" required>
+                </div>
+                
+                <div class="mb-3">
+                  <label for="cat_parent_id" class="form-label">Parent Category</label>
+                  <select class="form-select" id="cat_parent_id">
+                    <option value="">None (Top-Level Category)</option>
+                  </select>
+                </div>
+                
+                <div class="d-flex gap-2">
+                  <button type="submit" class="btn btn-success" id="cat_submit_btn">Create Category</button>
+                  <button type="button" class="btn btn-secondary d-none" id="cat_cancel_btn">Cancel Edit</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+    </main>
+  </div>
+
+  <script src="/admin-assets/js/handlesubmits.js?v=<%= Date.now() %>"></script>
+  <script src="/admin-assets/js/adminUpload.js?v=<%= Date.now() %>"></script>
+  <script src="https://unpkg.com/tus-js-client/dist/tus.js"></script>
+
+  <%- include('../partials/footer') %>
