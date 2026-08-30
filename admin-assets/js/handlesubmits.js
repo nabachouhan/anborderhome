@@ -417,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
         this.totalChunks = Math.ceil(file.size / this.chunkSize);
         this.uploadId = null;
         this.uploadedChunks = new Set();
-        this.storageKey = `upload_${file.name}_${file.lastModified}`;
+        this.storageKey = `upload_v2_${file.name}_${file.lastModified}`;
         this.aborted = false;
       }
 

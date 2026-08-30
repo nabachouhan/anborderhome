@@ -110,10 +110,13 @@ router.post('/chunk', (req, res) => {
 
     try {
       metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+      if (!metadata.partPath || !metadata.chunkSize) {
+        throw new Error('Legacy metadata');
+      }
     } catch (e) {
       hasError = true;
       fileStream.resume();
-      return res.status(500).json({ error: 'Corrupt metadata' });
+      return res.status(500).json({ error: 'Corrupt or legacy metadata' });
     }
 
     const offset = chunkIndex * metadata.chunkSize;
