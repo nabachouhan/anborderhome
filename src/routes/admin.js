@@ -493,24 +493,29 @@ router.post("/update-password", adminAuthMiddleware, upload.none(), async (req, 
 
 // BEFORE tus upload
 router.get("/raster/precheck/:fileName", async (req, res) => {
-  const { fileName } = req.params;
+  try {
+    const { fileName } = req.params;
 
-  const finalPath = path.join(RASTER_DIR, `${fileName}.tif`);
+    const finalPath = path.join(RASTER_DIR, `${fileName}.tif`);
 
-  if (fs.existsSync(finalPath)) {
-    return res.status(409).json({ exists: true });
+    if (fs.existsSync(finalPath)) {
+      return res.status(409).json({ exists: true });
+    }
+
+    const { rowCount } = await poolUser.query(
+      "SELECT 1 FROM catalog WHERE file_name=$1",
+      [fileName]
+    );
+
+    if (rowCount > 0) {
+      return res.status(409).json({ exists: true });
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Error in /raster/precheck:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const { rowCount } = await poolUser.query(
-    "SELECT 1 FROM catalog WHERE file_name=$1",
-    [fileName]
-  );
-
-  if (rowCount > 0) {
-    return res.status(409).json({ exists: true });
-  }
-
-  res.json({ ok: true });
 });
 
 // ──────────────────────────────────────────────────────────────
@@ -582,8 +587,8 @@ router.post("/raster/manual-entry", adminAuthMiddleware, async (req, res) => {
       });
     }
 
-    const srcPath  = path.join(UNTRACKED_DIR, `${source_file}.tif`);
-    const destPath = path.join(RASTER_DIR,    `${file_name}.tif`);
+    const srcPath = path.join(UNTRACKED_DIR, `${source_file}.tif`);
+    const destPath = path.join(RASTER_DIR, `${file_name}.tif`);
 
     if (!fs.existsSync(srcPath)) {
       return res.status(404).json({
