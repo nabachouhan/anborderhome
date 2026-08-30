@@ -84,6 +84,7 @@ router.post('/chunk', (req, res) => {
   let chunkIndex = null;
   let metadata = null;
   let hasError = false;
+  let fileProcessed = false;
 
   bb.on('field', (name, val) => {
     if (name === 'uploadId') uploadId = val;
@@ -91,6 +92,7 @@ router.post('/chunk', (req, res) => {
   });
 
   bb.on('file', (name, fileStream, info) => {
+    fileProcessed = true;
     if (hasError) return fileStream.resume(); // Ignore stream if error
     
     if (!uploadId || chunkIndex === null) {
@@ -110,19 +112,15 @@ router.post('/chunk', (req, res) => {
 
     try {
       metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-      if (!metadata.partPath || !metadata.chunkSize) {
-        throw new Error('Legacy metadata');
-      }
     } catch (e) {
       hasError = true;
       fileStream.resume();
       return res.status(500).json({ error: 'Corrupt or legacy metadata' });
     }
 
-    const offset = chunkIndex * metadata.chunkSize;
-    
-    // Pipe directly into the final .part file on the SAN at the correct exact byte offset!
-    const writeStream = fs.createWriteStream(metadata.partPath, { flags: 'r+', start: offset });
+    // Write to a separate file per chunk to avoid SAN/NFS sparse file hangs
+    const chunkPath = path.join(dir, `chunk_${chunkIndex}.part`);
+    const writeStream = fs.createWriteStream(chunkPath);
     
     writeStream.on('error', (err) => {
       console.error('[STREAM WRITE ERROR]', err);
@@ -136,13 +134,20 @@ router.post('/chunk', (req, res) => {
       if (hasError) return;
       // Mark chunk as done
       fs.writeFileSync(path.join(dir, `chunk_${chunkIndex}.done`), '1');
-      res.json({ success: true, chunkIndex });
+      if (!res.headersSent) res.json({ success: true, chunkIndex });
     });
   });
 
   bb.on('error', (err) => {
     console.error('[BUSBOY ERROR]', err);
     if (!res.headersSent) res.status(500).json({ error: 'Upload stream error' });
+  });
+
+  bb.on('close', () => {
+    if (!fileProcessed && !hasError && !res.headersSent) {
+      console.error('[BUSBOY CLOSE] Form parsed but no file found. Stream incomplete or blocked?');
+      res.status(400).json({ error: 'Upload incomplete or missing file data' });
+    }
   });
 
   req.pipe(bb);
@@ -205,11 +210,19 @@ router.post('/complete', async (req, res) => {
     return res.status(409).json({ error: 'File already exists in destination' });
   }
 
-  // Rename .part to .tif (Instantaneous!)
   try {
+    // Append all chunks sequentially into partPath
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = path.join(dir, `chunk_${i}.part`);
+      if (fs.existsSync(chunkPath)) {
+        const data = fs.readFileSync(chunkPath);
+        fs.appendFileSync(partPath, data);
+      }
+    }
+    // Rename .part to .tif (Instantaneous!)
     fs.renameSync(partPath, finalPath);
   } catch (err) {
-    console.error('[RENAME ERROR]', err);
+    console.error('[MERGE/RENAME ERROR]', err);
     return res.status(500).json({ error: 'Failed to finalize file' });
   }
 
