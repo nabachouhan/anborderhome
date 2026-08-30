@@ -501,9 +501,12 @@ document.addEventListener('DOMContentLoaded', () => {
           while (retries > 0 && !success && !this.aborted) {
             const chunkStart = performance.now();
             try {
-              const res = await fetch('/admin/upload/chunk', {
+              const res = await fetch(`/admin/upload/chunk?uploadId=${this.uploadId}&chunkIndex=${chunkIndex}`, {
                 method: 'POST',
-                body: formData
+                headers: {
+                  'Content-Type': 'application/octet-stream'
+                },
+                body: chunk
               });
               if (!res.ok) throw new Error('Chunk upload failed');
               
