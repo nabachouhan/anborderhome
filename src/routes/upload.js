@@ -1,5 +1,5 @@
 import express from 'express';
-import multer from 'multer';
+import busboy from 'busboy';
 import path from 'path';
 import fs from 'fs';
 import { poolUser } from '../db/connection.js';
@@ -12,34 +12,18 @@ const router = express.Router();
 const RASTER_DIR = process.env.RASTER_DIR;
 const TEMP_BASE_DIR = path.join(process.cwd(), 'tempuploads');
 
-// Ensure base temp directory exists
+// Ensure directories exist
 fs.mkdirSync(TEMP_BASE_DIR, { recursive: true });
-
-// Configure multer for disk storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const { uploadId } = req.body;
-    if (!uploadId) return cb(new Error('Missing uploadId'));
-    const dir = path.join(TEMP_BASE_DIR, uploadId);
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const { chunkIndex } = req.body;
-    if (chunkIndex === undefined) return cb(new Error('Missing chunkIndex'));
-    cb(null, `chunk_${chunkIndex}`);
-  }
-});
-const upload = multer({ storage });
+fs.mkdirSync(RASTER_DIR, { recursive: true });
 
 const SAFE_NAME = /^[a-zA-Z0-9_]+$/;
 
 // 1️⃣ START UPLOAD
 router.post('/start', async (req, res) => {
   try {
-    const { file_name, theme, srid, totalChunks, totalSize } = req.body;
+    const { file_name, theme, srid, totalChunks, totalSize, chunkSize } = req.body;
 
-    if (!file_name || !theme || !totalChunks) {
+    if (!file_name || !theme || !totalChunks || !chunkSize) {
       return res.status(400).json({ error: 'Missing required metadata' });
     }
 
@@ -51,6 +35,8 @@ router.post('/start', async (req, res) => {
     }
 
     const finalPath = path.join(RASTER_DIR, `${file_name}.tif`);
+    const partPath = path.join(RASTER_DIR, `${file_name}.tif.part`);
+    
     if (fs.existsSync(finalPath)) {
       return res.status(409).json({ error: 'File already exists in filesystem' });
     }
@@ -75,8 +61,13 @@ router.post('/start', async (req, res) => {
     // Store metadata
     fs.writeFileSync(
       path.join(uploadDir, 'metadata.json'),
-      JSON.stringify({ file_name, theme, srid, totalChunks, totalSize })
+      JSON.stringify({ file_name, theme, srid, totalChunks, totalSize, chunkSize, partPath })
     );
+
+    // Create a 0-byte sparse file so 'r+' stream appending works
+    if (!fs.existsSync(partPath)) {
+      fs.closeSync(fs.openSync(partPath, 'w'));
+    }
 
     res.json({ uploadId });
   } catch (err) {
@@ -85,12 +76,73 @@ router.post('/start', async (req, res) => {
   }
 });
 
-// 2️⃣ UPLOAD CHUNK
-router.post('/chunk', upload.single('chunk'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No chunk file uploaded' });
-  }
-  res.json({ success: true, chunkIndex: req.body.chunkIndex });
+// 2️⃣ UPLOAD CHUNK (DIRECT-TO-DISK via busboy)
+router.post('/chunk', (req, res) => {
+  const bb = busboy({ headers: req.headers });
+  
+  let uploadId = null;
+  let chunkIndex = null;
+  let metadata = null;
+  let hasError = false;
+
+  bb.on('field', (name, val) => {
+    if (name === 'uploadId') uploadId = val;
+    if (name === 'chunkIndex') chunkIndex = parseInt(val, 10);
+  });
+
+  bb.on('file', (name, fileStream, info) => {
+    if (hasError) return fileStream.resume(); // Ignore stream if error
+    
+    if (!uploadId || chunkIndex === null) {
+      hasError = true;
+      fileStream.resume();
+      return res.status(400).json({ error: 'Fields must precede file in form-data' });
+    }
+
+    const dir = path.join(TEMP_BASE_DIR, uploadId);
+    const metaPath = path.join(dir, 'metadata.json');
+    
+    if (!fs.existsSync(metaPath)) {
+      hasError = true;
+      fileStream.resume();
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    try {
+      metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    } catch (e) {
+      hasError = true;
+      fileStream.resume();
+      return res.status(500).json({ error: 'Corrupt metadata' });
+    }
+
+    const offset = chunkIndex * metadata.chunkSize;
+    
+    // Pipe directly into the final .part file on the SAN at the correct exact byte offset!
+    const writeStream = fs.createWriteStream(metadata.partPath, { flags: 'r+', start: offset });
+    
+    writeStream.on('error', (err) => {
+      console.error('[STREAM WRITE ERROR]', err);
+      hasError = true;
+      if (!res.headersSent) res.status(500).json({ error: 'Error writing chunk to disk' });
+    });
+
+    fileStream.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      if (hasError) return;
+      // Mark chunk as done
+      fs.writeFileSync(path.join(dir, `chunk_${chunkIndex}.done`), '1');
+      res.json({ success: true, chunkIndex });
+    });
+  });
+
+  bb.on('error', (err) => {
+    console.error('[BUSBOY ERROR]', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Upload stream error' });
+  });
+
+  req.pipe(bb);
 });
 
 // 3️⃣ GET STATUS
@@ -105,8 +157,8 @@ router.get('/status/:uploadId', (req, res) => {
   try {
     const files = fs.readdirSync(dir);
     const uploadedChunks = files
-      .filter(f => f.startsWith('chunk_'))
-      .map(f => parseInt(f.replace('chunk_', ''), 10));
+      .filter(f => f.startsWith('chunk_') && f.endsWith('.done'))
+      .map(f => parseInt(f.replace('chunk_', '').replace('.done', ''), 10));
 
     res.json({ uploadedChunks });
   } catch (err) {
@@ -117,6 +169,7 @@ router.get('/status/:uploadId', (req, res) => {
 
 // 4️⃣ COMPLETE UPLOAD
 router.post('/complete', async (req, res) => {
+  const completeStart = performance.now();
   const { uploadId } = req.body;
   if (!uploadId) return res.status(400).json({ error: 'Missing uploadId' });
 
@@ -134,14 +187,12 @@ router.post('/complete', async (req, res) => {
     return res.status(500).json({ error: 'Corrupt metadata' });
   }
 
-  const { file_name, theme, srid, totalChunks } = metadata;
-  const finalDir = RASTER_DIR;
-  fs.mkdirSync(finalDir, { recursive: true });
-  const finalPath = path.join(finalDir, `${file_name}.tif`);
+  const { file_name, theme, srid, totalChunks, partPath } = metadata;
+  const finalPath = path.join(RASTER_DIR, `${file_name}.tif`);
 
-  // Verify all chunks exist
+  // Verify all chunks are marked done
   for (let i = 0; i < totalChunks; i++) {
-    if (!fs.existsSync(path.join(dir, `chunk_${i}`))) {
+    if (!fs.existsSync(path.join(dir, `chunk_${i}.done`))) {
       return res.status(400).json({ error: `Missing chunk ${i}` });
     }
   }
@@ -151,31 +202,12 @@ router.post('/complete', async (req, res) => {
     return res.status(409).json({ error: 'File already exists in destination' });
   }
 
-  // Merge chunks using streams
+  // Rename .part to .tif (Instantaneous!)
   try {
-    const writeStream = fs.createWriteStream(finalPath);
-    
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkPath = path.join(dir, `chunk_${i}`);
-      await new Promise((resolve, reject) => {
-        const readStream = fs.createReadStream(chunkPath);
-        readStream.on('error', reject);
-        writeStream.on('error', reject);
-        readStream.on('end', resolve);
-        readStream.pipe(writeStream, { end: false });
-      });
-    }
-    writeStream.end();
-
-    await new Promise((resolve, reject) => {
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
-    });
-
-  } catch (mergeError) {
-    console.error('[MERGE ERROR]', mergeError);
-    if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
-    return res.status(500).json({ error: 'Error merging file' });
+    fs.renameSync(partPath, finalPath);
+  } catch (err) {
+    console.error('[RENAME ERROR]', err);
+    return res.status(500).json({ error: 'Failed to finalize file' });
   }
 
   // Database Insertion
@@ -206,11 +238,12 @@ router.post('/complete', async (req, res) => {
     client.release();
   }
 
-  // Cleanup chunks
+  // Cleanup session
   fs.rmSync(dir, { recursive: true, force: true });
 
-  console.log(`[UPLOAD COMPLETE] ${file_name}`);
-  res.json({ success: true, message: 'Upload and merge completed successfully' });
+  const totalTime = ((performance.now() - completeStart) / 1000).toFixed(2);
+  console.log(`[UPLOAD COMPLETE] id=${uploadId} file=${file_name} totalCompletionTime=${totalTime}s`);
+  res.json({ success: true, message: 'Upload completed successfully' });
 });
 
 // 5️⃣ ABORT UPLOAD
@@ -219,6 +252,15 @@ router.delete('/abort/:uploadId', (req, res) => {
   const dir = path.join(TEMP_BASE_DIR, uploadId);
 
   if (fs.existsSync(dir)) {
+    try {
+      const metaPath = path.join(dir, 'metadata.json');
+      if (fs.existsSync(metaPath)) {
+        const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+        if (fs.existsSync(metadata.partPath)) {
+          fs.unlinkSync(metadata.partPath);
+        }
+      }
+    } catch (e) {}
     fs.rmSync(dir, { recursive: true, force: true });
   }
   res.json({ success: true });

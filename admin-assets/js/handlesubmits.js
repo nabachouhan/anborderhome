@@ -451,7 +451,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 theme: "raster",
                 srid: "4326",
                 totalChunks: this.totalChunks,
-                totalSize: this.file.size
+                totalSize: this.file.size,
+                chunkSize: this.chunkSize
               })
             });
             const data = await res.json();
@@ -473,22 +474,32 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       async uploadChunks() {
+        const UPLOAD_CONCURRENCY = 4; // Configurable concurrency limit
+        const pendingChunks = [];
+        
         for (let i = 0; i < this.totalChunks; i++) {
-          if (this.aborted) break;
-          if (this.uploadedChunks.has(i)) continue;
+          if (!this.uploadedChunks.has(i)) {
+            pendingChunks.push(i);
+          }
+        }
 
-          const start = i * this.chunkSize;
+        const uploadTask = async (chunkIndex) => {
+          if (this.aborted) return;
+          
+          const start = chunkIndex * this.chunkSize;
           const end = Math.min(start + this.chunkSize, this.file.size);
           const chunk = this.file.slice(start, end);
           
           const formData = new FormData();
           formData.append('uploadId', this.uploadId);
-          formData.append('chunkIndex', i);
+          formData.append('chunkIndex', chunkIndex);
           formData.append('chunk', chunk, 'chunk');
 
           let retries = 3;
           let success = false;
+          
           while (retries > 0 && !success && !this.aborted) {
+            const chunkStart = performance.now();
             try {
               const res = await fetch('/admin/upload/chunk', {
                 method: 'POST',
@@ -496,16 +507,35 @@ document.addEventListener('DOMContentLoaded', () => {
               });
               if (!res.ok) throw new Error('Chunk upload failed');
               
-              this.uploadedChunks.add(i);
+              this.uploadedChunks.add(chunkIndex);
               success = true;
               this.updateProgress();
+              
+              const duration = (performance.now() - chunkStart) / 1000;
+              const speed = ((chunk.size / (1024 * 1024)) / duration).toFixed(2);
+              console.log(`[UPLOAD] id=${this.uploadId} chunk=${chunkIndex}/${this.totalChunks} size=${(chunk.size/(1024*1024)).toFixed(2)}MB time=${duration.toFixed(2)}s speed=${speed}MB/s`);
             } catch (err) {
               retries--;
               if (retries === 0) throw err;
-              await new Promise(r => setTimeout(r, 2000));
+              // Exponential backoff: 1s, 2s, 4s
+              const backoff = 1000 * Math.pow(2, 3 - retries - 1); 
+              await new Promise(r => setTimeout(r, backoff));
             }
           }
+        };
+
+        const workers = [];
+        for (let i = 0; i < UPLOAD_CONCURRENCY; i++) {
+          workers.push((async () => {
+            while (pendingChunks.length > 0 && !this.aborted) {
+              const nextChunk = pendingChunks.shift();
+              await uploadTask(nextChunk);
+            }
+          })());
         }
+
+        console.log(`[UPLOAD] id=${this.uploadId} concurrency=${UPLOAD_CONCURRENCY}`);
+        await Promise.all(workers);
       }
 
       async completeUpload() {
