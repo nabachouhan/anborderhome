@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
       constructor(file, fileName) {
         this.file = file;
         this.fileName = fileName;
-        this.chunkSize = 50 * 1024 * 1024; // 50 MB chunks
+        this.chunkSize = 5 * 1024 * 1024; // 5 MB chunks
         this.totalChunks = Math.ceil(file.size / this.chunkSize);
         this.uploadId = null;
         this.uploadedChunks = new Set();
