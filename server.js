@@ -141,6 +141,10 @@ app.use('/', router);
 // Start the server
 const PORT = process.env.PORT || 4100;
 const HOST = '0.0.0.0';
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`[${HOST}]:${PORT} listening on port ${PORT}`);
 });
+
+// Increase Node.js native timeouts for large/slow uploads (1 hour)
+server.requestTimeout = 3600000;
+server.headersTimeout = 3600000;
