@@ -38,7 +38,7 @@ router.post('/start', async (req, res) => {
     const partPath = path.join(RASTER_DIR, `${file_name}.tif.part`);
     
     if (fs.existsSync(finalPath)) {
-      return res.status(409).json({ error: 'File already exists in filesystem' });
+      return res.status(409).json({ error: 'File with same name already exist' });
     }
 
     const client = await poolUser.connect();
@@ -48,7 +48,7 @@ router.post('/start', async (req, res) => {
         [file_name]
       );
       if (rowCount > 0) {
-        return res.status(409).json({ error: 'File already exists in database' });
+        return res.status(409).json({ error: 'File with same name already exist' });
       }
     } finally {
       client.release();
@@ -232,7 +232,7 @@ router.post('/complete', async (req, res) => {
 
   if (fs.existsSync(finalPath)) {
     fs.rmSync(dir, { recursive: true, force: true });
-    return res.status(409).json({ error: 'File already exists in destination' });
+    return res.status(409).json({ error: 'File with same name already exist' });
   }
 
   try {
@@ -262,7 +262,7 @@ router.post('/complete', async (req, res) => {
 
     if (rowCount > 0) {
       if (fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
-      return res.status(409).json({ error: 'File already exists in database' });
+      return res.status(409).json({ error: 'File with same name already exist' });
     }
 
     await client.query(
