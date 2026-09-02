@@ -90,6 +90,13 @@ function updateStep() {
 
 nextButtons.forEach(button => {
   button.addEventListener('click', () => {
+    if (currentStep === 0) {
+      const sourceDate = document.getElementById("source_date");
+      if (sourceDate && !sourceDate.value) {
+        sourceDate.reportValidity();
+        return;
+      }
+    }
     if (currentStep < steps.length - 1) {
       currentStep++;
       updateStep();

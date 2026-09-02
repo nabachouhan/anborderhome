@@ -78,7 +78,7 @@ router.post('/start', async (req, res) => {
 
 // 2️⃣ UPLOAD CHUNK (DIRECT-TO-DISK via busboy)
 router.post('/chunk', (req, res) => {
-  console.log(`[UPLOAD] Starting chunk request... Content-Length: ${req.headers['content-length']}`);
+  // console.log(`[UPLOAD] Starting chunk request... Content-Length: ${req.headers['content-length']}`);
   
   const bb = busboy({ headers: req.headers });
   
@@ -89,13 +89,13 @@ router.post('/chunk', (req, res) => {
   let fileProcessed = false;
 
   bb.on('field', (name, val) => {
-    console.log(`[UPLOAD FIELD] name=${name} val=${val}`);
+    // console.log(`[UPLOAD FIELD] name=${name} val=${val}`);
     if (name === 'uploadId') uploadId = val;
     if (name === 'chunkIndex') chunkIndex = parseInt(val, 10);
   });
 
   bb.on('file', (name, fileStream, info) => {
-    console.log(`[UPLOAD FILE START] name=${name}, uploadId=${uploadId}, chunkIndex=${chunkIndex}`);
+    // console.log(`[UPLOAD FILE START] name=${name}, uploadId=${uploadId}, chunkIndex=${chunkIndex}`);
     fileProcessed = true;
     if (hasError) {
       console.log(`[UPLOAD FILE] Skipping file stream due to previous error`);
@@ -137,7 +137,7 @@ router.post('/chunk', (req, res) => {
     fileStream.on('data', (data) => {
       bytesWritten += data.length;
       if (bytesWritten % (1024 * 1024) === 0) { // Log every ~1MB
-        console.log(`[UPLOAD PROGRESS] uploadId=${uploadId} chunk=${chunkIndex} bytes=${bytesWritten}`);
+        // console.log(`[UPLOAD PROGRESS] uploadId=${uploadId} chunk=${chunkIndex} bytes=${bytesWritten}`);
       }
     });
 
@@ -150,7 +150,7 @@ router.post('/chunk', (req, res) => {
     fileStream.pipe(writeStream);
 
     writeStream.on('finish', () => {
-      console.log(`[UPLOAD FILE FINISH] chunk=${chunkIndex} totalBytes=${bytesWritten}`);
+      // console.log(`[UPLOAD FILE FINISH] chunk=${chunkIndex} totalBytes=${bytesWritten}`);
       if (hasError) return;
       // Mark chunk as done
       fs.writeFileSync(path.join(dir, `chunk_${chunkIndex}.done`), '1');
@@ -167,7 +167,7 @@ router.post('/chunk', (req, res) => {
   });
 
   bb.on('close', () => {
-    console.log(`[BUSBOY CLOSE] Form parsing complete. fileProcessed=${fileProcessed}, hasError=${hasError}, resSent=${res.headersSent}`);
+    // console.log(`[BUSBOY CLOSE] Form parsing complete. fileProcessed=${fileProcessed}, hasError=${hasError}, resSent=${res.headersSent}`);
     if (!fileProcessed && !hasError && !res.headersSent) {
       console.error('[BUSBOY CLOSE ERROR] Form parsed but no file found. Stream incomplete or blocked?');
       res.status(400).json({ error: 'Upload incomplete or missing file data' });

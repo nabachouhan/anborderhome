@@ -355,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const res = await fetch(`/admin/raster/precheck/${fileName}`);
     if (!res.ok) {
-      Swal.fire("Duplicate", "File already exists", "error");
+      Swal.fire("Duplicate", "file with same name already exist", "error");
       return;
     }
 

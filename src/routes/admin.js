@@ -1525,10 +1525,14 @@ router.post("/delete", adminAuthMiddleware, async (req, res) => {
 
 
       // 3️⃣ Drop PostGIS table
-      const pool = getPoolByTheme(store);
-      const client2 = await pool.connect();
-      await client2.query(`DROP TABLE IF EXISTS "${file_name}" CASCADE`);
-      client2.release();
+      try {
+        const pool = getPoolByTheme(store);
+        const client2 = await pool.connect();
+        await client2.query(`DROP TABLE IF EXISTS "${file_name}" CASCADE`);
+        client2.release();
+      } catch (err) {
+        console.warn(`[DELETE] Could not drop PostGIS table for ${file_name}: ${err.message}`);
+      }
       // /* 4️⃣ Delete catalog ZIP copy */
       const catalogZipPath = path.join(
         process.cwd(),
