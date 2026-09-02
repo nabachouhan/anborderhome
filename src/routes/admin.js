@@ -726,20 +726,6 @@ router.post("/shpuploads", adminAuthMiddleware, shpupload.single("uploaded_file"
         cleanupFiles();
         return res.status(400).json({ message: "ZIP file required" });
       }
-      
-      const clientCheck = await poolUser.connect();
-      const { rowCount: existCount } = await clientCheck.query(
-        "SELECT 1 FROM catalog WHERE file_name = $1 LIMIT 1",
-        [file_name]
-      );
-      clientCheck.release();
-      
-      if (existCount > 0) {
-        console.warn(`[SHP Upload] File already exists: ${file_name}`);
-        cleanupFiles();
-        return res.status(409).json({ message: "File with same name already exist", title: "Error", icon: "error" });
-      }
-
       console.log(`[SHP Upload] Validation successful for ${file_name}`);
 
       /* ---------------- ZIP EXTRACTION ---------------- */
@@ -1539,14 +1525,10 @@ router.post("/delete", adminAuthMiddleware, async (req, res) => {
 
 
       // 3️⃣ Drop PostGIS table
-      try {
-        const pool = getPoolByTheme(store);
-        const client2 = await pool.connect();
-        await client2.query(`DROP TABLE IF EXISTS "${file_name}" CASCADE`);
-        client2.release();
-      } catch (poolErr) {
-        console.warn(`[DELETE] Skipping PostGIS table drop: ${poolErr.message}`);
-      }
+      const pool = getPoolByTheme(store);
+      const client2 = await pool.connect();
+      await client2.query(`DROP TABLE IF EXISTS "${file_name}" CASCADE`);
+      client2.release();
       // /* 4️⃣ Delete catalog ZIP copy */
       const catalogZipPath = path.join(
         process.cwd(),

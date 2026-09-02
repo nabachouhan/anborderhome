@@ -18,6 +18,9 @@ const handleFormSubmit = async (event, url) => {
   const clickedButtonValue = event.submitter.value;
   formData.append('submit', clickedButtonValue);
 
+  const formDataObj = formDataToObject(formData); // Convert FormData to an object for logging
+  console.log('Submitting to URL:', url, 'with data:', formDataObj);
+
   // First, show confirmation before submitting the data
   const confirmationResult = await Swal.fire({
     title: 'Confirm Submission',
@@ -43,6 +46,7 @@ const handleFormSubmit = async (event, url) => {
     .then(response => response.json())
     .then(data => {
       document.getElementById('loader0').style.display = 'none'
+      console.log('Response data:', data);
       if (data) {
         Swal.fire({
           title: data.title,
@@ -81,9 +85,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (adminUpload) {
     adminUpload.addEventListener('submit', function (e) {
+      console.log("entered");
+
       const file_type = document.getElementById('file_type').value;
       if (file_type === 'vector') {
+
+        console.log("HII admin")
         handleFormSubmit(e, '/admin/shpuploads');
+
       }
       else if (file_type === 'raster') {
 
@@ -118,6 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const metadataForm = document.getElementById('metadataForm');
   if (metadataForm) {
     metadataForm.addEventListener('submit', function (e) {
+      console.log("HII ctalog")
       handleFormSubmit(e, '/admin/metadata');
     });
   }
@@ -168,6 +178,7 @@ function handleAdminLogout(event, url) {
     })
       .then(response => response.json())
       .then(data => {
+        console.log(data);
         if (data) {
           Swal.fire({
             title: data.title,
@@ -202,6 +213,7 @@ function handleAdminLogout(event, url) {
 
 // Attach event listeners to each form, passing the appropriate endpoint URL
 document.getElementById('adminLogout').addEventListener('click', function (e) {
+  console.log("clickeed loggout..........");
   handleAdminLogout(e, '/admin/logout');
 });
 // admin Logout--end
@@ -343,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const res = await fetch(`/admin/raster/precheck/${fileName}`);
     if (!res.ok) {
-      Swal.fire("Duplicate", "File with same name already exist", "error");
+      Swal.fire("Duplicate", "File already exists", "error");
       return;
     }
 
@@ -709,13 +721,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Step navigation
   nextButtons.forEach(button => {
     button.addEventListener('click', () => {
-      if (currentStep === 0) {
-        const sourceDateInput = document.getElementById('source_date');
-        if (sourceDateInput && !sourceDateInput.value) {
-          Swal.fire("Required", "Please select Source date", "warning");
-          return;
-        }
-      }
       if (currentStep < steps.length - 1) {
         currentStep++;
         updateStep();
