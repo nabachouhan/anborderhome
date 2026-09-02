@@ -76,69 +76,106 @@ router.post('/start', async (req, res) => {
   }
 });
 
-// 2️⃣ UPLOAD CHUNK (DIRECT-TO-DISK via raw request stream)
+// 2️⃣ UPLOAD CHUNK (DIRECT-TO-DISK via busboy)
 router.post('/chunk', (req, res) => {
   console.log(`[UPLOAD] Starting chunk request... Content-Length: ${req.headers['content-length']}`);
   
-  const uploadId = req.query.uploadId;
-  const chunkIndexStr = req.query.chunkIndex;
+  const bb = busboy({ headers: req.headers });
   
-  if (!uploadId || !chunkIndexStr) {
-    console.error(`[UPLOAD ERROR] Missing uploadId or chunkIndex!`);
-    return res.status(400).json({ error: 'Missing uploadId or chunkIndex in query' });
-  }
+  let uploadId = null;
+  let chunkIndex = null;
+  let metadata = null;
+  let hasError = false;
+  let fileProcessed = false;
 
-  const chunkIndex = parseInt(chunkIndexStr, 10);
-  
-  const dir = path.join(TEMP_BASE_DIR, uploadId);
-  const metaPath = path.join(dir, 'metadata.json');
-  
-  if (!fs.existsSync(metaPath)) {
-    console.error(`[UPLOAD ERROR] Session not found at ${metaPath}`);
-    return res.status(404).json({ error: 'Session not found' });
-  }
+  bb.on('field', (name, val) => {
+    console.log(`[UPLOAD FIELD] name=${name} val=${val}`);
+    if (name === 'uploadId') uploadId = val;
+    if (name === 'chunkIndex') chunkIndex = parseInt(val, 10);
+  });
 
-  try {
-    JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-  } catch (e) {
-    console.error(`[UPLOAD ERROR] Corrupt metadata`, e);
-    return res.status(500).json({ error: 'Corrupt or legacy metadata' });
-  }
-
-  const chunkPath = path.join(dir, `chunk_${chunkIndex}.part`);
-  console.log(`[UPLOAD FILE] Writing chunk to ${chunkPath}`);
-  const writeStream = fs.createWriteStream(chunkPath);
-  
-  let bytesWritten = 0;
-  
-  req.on('data', (data) => {
-    bytesWritten += data.length;
-    if (bytesWritten % (1024 * 1024) === 0) { // Log every ~1MB
-      console.log(`[UPLOAD PROGRESS] uploadId=${uploadId} chunk=${chunkIndex} bytes=${bytesWritten}`);
+  bb.on('file', (name, fileStream, info) => {
+    console.log(`[UPLOAD FILE START] name=${name}, uploadId=${uploadId}, chunkIndex=${chunkIndex}`);
+    fileProcessed = true;
+    if (hasError) {
+      console.log(`[UPLOAD FILE] Skipping file stream due to previous error`);
+      return fileStream.resume(); // Ignore stream if error
     }
-  });
-
-  writeStream.on('error', (err) => {
-    console.error(`[STREAM WRITE ERROR] chunk=${chunkIndex}`, err);
-    if (!res.headersSent) res.status(500).json({ error: 'Error writing chunk to disk' });
-  });
-
-  req.pipe(writeStream);
-
-  writeStream.on('finish', () => {
-    console.log(`[UPLOAD FILE FINISH] chunk=${chunkIndex} totalBytes=${bytesWritten}`);
-    // Mark chunk as done
-    fs.writeFileSync(path.join(dir, `chunk_${chunkIndex}.done`), '1');
-    if (!res.headersSent) {
-      console.log(`[UPLOAD SUCCESS] Sending response for chunk=${chunkIndex}`);
-      res.json({ success: true, chunkIndex });
+    
+    if (!uploadId || chunkIndex === null) {
+      hasError = true;
+      console.error(`[UPLOAD ERROR] Missing uploadId or chunkIndex!`);
+      fileStream.resume();
+      return res.status(400).json({ error: 'Fields must precede file in form-data' });
     }
+
+    const dir = path.join(TEMP_BASE_DIR, uploadId);
+    const metaPath = path.join(dir, 'metadata.json');
+    
+    if (!fs.existsSync(metaPath)) {
+      hasError = true;
+      console.error(`[UPLOAD ERROR] Session not found at ${metaPath}`);
+      fileStream.resume();
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    try {
+      metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+    } catch (e) {
+      hasError = true;
+      console.error(`[UPLOAD ERROR] Corrupt metadata`, e);
+      fileStream.resume();
+      return res.status(500).json({ error: 'Corrupt or legacy metadata' });
+    }
+
+    const chunkPath = path.join(dir, `chunk_${chunkIndex}.part`);
+    console.log(`[UPLOAD FILE] Writing chunk to ${chunkPath}`);
+    const writeStream = fs.createWriteStream(chunkPath);
+    
+    let bytesWritten = 0;
+    
+    fileStream.on('data', (data) => {
+      bytesWritten += data.length;
+      if (bytesWritten % (1024 * 1024) === 0) { // Log every ~1MB
+        console.log(`[UPLOAD PROGRESS] uploadId=${uploadId} chunk=${chunkIndex} bytes=${bytesWritten}`);
+      }
+    });
+
+    writeStream.on('error', (err) => {
+      console.error(`[STREAM WRITE ERROR] chunk=${chunkIndex}`, err);
+      hasError = true;
+      if (!res.headersSent) res.status(500).json({ error: 'Error writing chunk to disk' });
+    });
+
+    fileStream.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+      console.log(`[UPLOAD FILE FINISH] chunk=${chunkIndex} totalBytes=${bytesWritten}`);
+      if (hasError) return;
+      // Mark chunk as done
+      fs.writeFileSync(path.join(dir, `chunk_${chunkIndex}.done`), '1');
+      if (!res.headersSent) {
+        console.log(`[UPLOAD SUCCESS] Sending response for chunk=${chunkIndex}`);
+        res.json({ success: true, chunkIndex });
+      }
+    });
   });
-  
-  req.on('error', (err) => {
-    console.error(`[REQUEST STREAM ERROR]`, err);
+
+  bb.on('error', (err) => {
+    console.error(`[BUSBOY ERROR]`, err);
     if (!res.headersSent) res.status(500).json({ error: 'Upload stream error' });
   });
+
+  bb.on('close', () => {
+    console.log(`[BUSBOY CLOSE] Form parsing complete. fileProcessed=${fileProcessed}, hasError=${hasError}, resSent=${res.headersSent}`);
+    if (!fileProcessed && !hasError && !res.headersSent) {
+      console.error('[BUSBOY CLOSE ERROR] Form parsed but no file found. Stream incomplete or blocked?');
+      res.status(400).json({ error: 'Upload incomplete or missing file data' });
+    }
+  });
+
+  console.log(`[UPLOAD] Piping request to busboy...`);
+  req.pipe(bb);
 });
 
 // 3️⃣ GET STATUS
