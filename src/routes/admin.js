@@ -1900,8 +1900,8 @@ router.post("/categories", adminAuthMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Route: PUT /categories/:id to update/move a category (Dashboard, protected by adminAuth)
-router.put("/categories/:id", adminAuthMiddleware, async (req, res) => {
+// ✅ Route: POST /categories/:id to update/move a category (Dashboard, protected by adminAuth)
+router.post("/categories/:id", adminAuthMiddleware, async (req, res) => {
   const { id } = req.params;
   const { name, parent_id, type } = req.body;
   if (!name) {
@@ -1954,8 +1954,8 @@ router.put("/categories/:id", adminAuthMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Route: DELETE /categories/:id to delete a category (Dashboard, protected by adminAuth)
-router.delete("/categories/:id", adminAuthMiddleware, async (req, res) => {
+// ✅ Route: POST /categories/delete/:id to delete a category (Dashboard, protected by adminAuth)
+const deleteCategoryHandler = async (req, res) => {
   const { id } = req.params;
   try {
     const client = await poolUser.connect();
@@ -1969,7 +1969,10 @@ router.delete("/categories/:id", adminAuthMiddleware, async (req, res) => {
     console.error("Error deleting category:", error);
     return res.status(500).json({ error: "Failed to delete category" });
   }
-});
+};
+
+router.post("/categories/delete/:id", adminAuthMiddleware, deleteCategoryHandler);
+router.post("/categories/:id/delete", adminAuthMiddleware, deleteCategoryHandler);
 
 // ✅ Route: GET /* 404 Not found page  (Dashboard, protected by adminAuth)
 router.get("*", (req, res) => {

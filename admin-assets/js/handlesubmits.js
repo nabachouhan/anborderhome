@@ -904,8 +904,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const response = await fetch(`/admin/categories/${id}`, {
-            method: 'DELETE'
+          const response = await fetch(`/admin/categories/delete/${id}`, {
+            method: 'POST'
           });
           if (response.ok) {
             Swal.fire('Deleted!', 'Category has been deleted.', 'success');
@@ -959,7 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const parent_id = catParentSelect.value || null;
 
       const url = id ? `/admin/categories/${id}` : '/admin/categories';
-      const method = id ? 'PUT' : 'POST';
+      const method = 'POST';
 
       try {
         const response = await fetch(url, {
