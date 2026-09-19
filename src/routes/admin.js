@@ -22,6 +22,7 @@ import { spawn } from "child_process";
 import bcrypt from 'bcryptjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+import { google } from "googleapis";
 
 // ✅ Call dotenv.config() to load .env variables
 dotenv.config();
@@ -37,17 +38,33 @@ router.use(cookieParser());
 router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
 
-// ✅ Email transport configuration using environment variables
-const transporter = nodemailer.createTransport({
-  host: process.env.email_host,
-  port: 587,
-  secure: false, // STARTTLS
-  requireTLS: true, // Optional but recommended
-  auth: {
-    user: process.env.email,
-    pass: process.env.app_pw,
-  },
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GMAIL_CLIENT_ID,
+  process.env.GMAIL_CLIENT_SECRET,
+  process.env.GMAIL_REDIRECT_URI
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.GMAIL_REFRESH_TOKEN,
 });
+
+const gmail = google.gmail({
+  version: "v1",
+  auth: oauth2Client,
+});
+
+// ✅ Email transport configuration using environment variables
+// const transporter = nodemailer.createTransport({
+//   host: process.env.email_host,
+//   port: 587,
+//   secure: false, // STARTTLS
+//   requireTLS: true, // Optional but recommended
+//   auth: {
+//     user: process.env.email,
+//     pass: process.env.app_pw,
+//   },
+// });
 
 // ✅ Middleware runner helper at the top of your file
 function runMiddleware(req, res, fn) {
@@ -192,19 +209,55 @@ router.get("/", (req, res) => {
 // ✅ Route: GET /admin/  login page (Dashboard, protected by adminAuth)
 // -------------------------------
 
+// async function sendOtpEmail(to, otp) {
+//   await transporter.sendMail({
+//     from: process.env.email,
+//     to,
+//     subject: "🔐 ASSAC | OTP Verification",
+//     html: `
+//       <div style="font-family: Arial, sans-serif">
+//         <h2>ASSAC OTP Verification</h2>
+//         <p>Your OTP is:</p>
+//         <h1>${otp}</h1>
+//         <p>This OTP is valid for 5 minutes.</p>
+//       </div>
+//     `,
+//   });
+// }
+
 async function sendOtpEmail(to, otp) {
-  await transporter.sendMail({
-    from: process.env.email,
-    to,
-    subject: "🔐 ASSAC | OTP Verification",
-    html: `
-      <div style="font-family: Arial, sans-serif">
-        <h2>ASSAC OTP Verification</h2>
-        <p>Your OTP is:</p>
-        <h1>${otp}</h1>
-        <p>This OTP is valid for 5 minutes.</p>
-      </div>
-    `,
+  const from = process.env.GMAIL_USER;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif">
+      <h2>ASSAC OTP Verification</h2>
+      <p>Your OTP is:</p>
+      <h1>${otp}</h1>
+      <p>This OTP is valid for 5 minutes.</p>
+    </div>
+  `;
+
+  const message = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ASSAC | OTP Verification`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=UTF-8",
+    "",
+    html,
+  ].join("\r\n");
+
+  const raw = Buffer.from(message)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw,
+    },
   });
 }
 
