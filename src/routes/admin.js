@@ -22,7 +22,7 @@ import { spawn } from "child_process";
 import bcrypt from 'bcryptjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import { google } from "googleapis";
+// import { google } from "googleapis";
 
 // ✅ Call dotenv.config() to load .env variables
 dotenv.config();
@@ -39,32 +39,32 @@ router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
 
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GMAIL_CLIENT_ID,
-  process.env.GMAIL_CLIENT_SECRET,
-  process.env.GMAIL_REDIRECT_URI
-);
+// const oauth2Client = new google.auth.OAuth2(
+//   process.env.GMAIL_CLIENT_ID,
+//   process.env.GMAIL_CLIENT_SECRET,
+//   process.env.GMAIL_REDIRECT_URI
+// );
 
-oauth2Client.setCredentials({
-  refresh_token: process.env.GMAIL_REFRESH_TOKEN,
-});
+// oauth2Client.setCredentials({
+//   refresh_token: process.env.GMAIL_REFRESH_TOKEN,
+// });
 
-const gmail = google.gmail({
-  version: "v1",
-  auth: oauth2Client,
-});
+// const gmail = google.gmail({
+//   version: "v1",
+//   auth: oauth2Client,
+// });
 
 // ✅ Email transport configuration using environment variables
-// const transporter = nodemailer.createTransport({
-//   host: process.env.email_host,
-//   port: 587,
-//   secure: false, // STARTTLS
-//   requireTLS: true, // Optional but recommended
-//   auth: {
-//     user: process.env.email,
-//     pass: process.env.app_pw,
-//   },
-// });
+const transporter = nodemailer.createTransport({
+  host: process.env.email_host,
+  port: 587,
+  secure: false, // STARTTLS
+  requireTLS: true, // Optional but recommended
+  auth: {
+    user: process.env.email,
+    pass: process.env.app_pw,
+  },
+});
 
 // ✅ Middleware runner helper at the top of your file
 function runMiddleware(req, res, fn) {
@@ -209,57 +209,189 @@ router.get("/", (req, res) => {
 // ✅ Route: GET /admin/  login page (Dashboard, protected by adminAuth)
 // -------------------------------
 
+async function sendOtpEmail(to, otp) {
+
+  await transporter.sendMail({
+
+    from: process.env.email,
+
+    to,
+
+    subject: "ASSAC | OTP Verification",
+
+    html: `
+            <div style="
+                margin: 0;
+                padding: 40px 20px;
+                background-color: #f4f6f8;
+                font-family: Arial, Helvetica, sans-serif;
+            ">
+
+                <div style="
+                    max-width: 520px;
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                    border: 1px solid #e1e5e8;
+                    border-radius: 10px;
+                    overflow: hidden;
+                ">
+
+                    <!-- Header -->
+                    <div style="
+                        padding: 22px 30px;
+                        background-color: #1f4e79;
+                        color: #ffffff;
+                    ">
+                        <h2 style="
+                            margin: 0;
+                            font-size: 22px;
+                            font-weight: 600;
+                        ">
+                            ASSAC
+                        </h2>
+
+                        <p style="
+                            margin: 5px 0 0;
+                            font-size: 13px;
+                            opacity: 0.9;
+                        ">
+                            OTP Verification
+                        </p>
+                    </div>
+
+
+                    <!-- Content -->
+                    <div style="
+                        padding: 32px 30px;
+                        text-align: center;
+                    ">
+
+                        <h3 style="
+                            margin: 0 0 12px;
+                            color: #222222;
+                            font-size: 20px;
+                            font-weight: 600;
+                        ">
+                            Verify Your Email
+                        </h3>
+
+                        <p style="
+                            margin: 0 0 25px;
+                            color: #555555;
+                            font-size: 14px;
+                            line-height: 1.6;
+                        ">
+                            Please use the verification code below to
+                            complete your request.
+                        </p>
+
+
+                        <!-- OTP -->
+                        <div style="
+                            display: inline-block;
+                            padding: 14px 28px;
+                            background-color: #f1f5f9;
+                            border: 1px solid #d9e0e6;
+                            border-radius: 8px;
+                            letter-spacing: 6px;
+                        ">
+
+                            <span style="
+                                color: #1f4e79;
+                                font-size: 30px;
+                                font-weight: 700;
+                            ">
+                                ${otp}
+                            </span>
+
+                        </div>
+
+
+                        <p style="
+                            margin: 22px 0 0;
+                            color: #666666;
+                            font-size: 13px;
+                            line-height: 1.5;
+                        ">
+                            This verification code is valid for
+                            <strong>5 minutes</strong>.
+                        </p>
+
+                    </div>
+
+
+                    <!-- Footer -->
+                    <div style="
+                        padding: 18px 30px;
+                        border-top: 1px solid #eeeeee;
+                        background-color: #fafafa;
+                        text-align: center;
+                    ">
+
+                        <p style="
+                            margin: 0;
+                            color: #888888;
+                            font-size: 12px;
+                            line-height: 1.5;
+                        ">
+                            This is an automated message. Please do not
+                            reply to this email.
+                        </p>
+
+                        <p style="
+                            margin: 6px 0 0;
+                            color: #888888;
+                            font-size: 12px;
+                        ">
+                            ASSAC
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+        `,
+  });
+}
+
+
 // async function sendOtpEmail(to, otp) {
-//   await transporter.sendMail({
-//     from: process.env.email,
-//     to,
-//     subject: "🔐 ASSAC | OTP Verification",
-//     html: `
-//       <div style="font-family: Arial, sans-serif">
-//         <h2>ASSAC OTP Verification</h2>
-//         <p>Your OTP is:</p>
-//         <h1>${otp}</h1>
-//         <p>This OTP is valid for 5 minutes.</p>
-//       </div>
-//     `,
+//   const from = process.env.GMAIL_USER;
+
+//   const html = `
+//     <div style="font-family: Arial, sans-serif">
+//       <h2>ASSAC OTP Verification</h2>
+//       <p>Your OTP is:</p>
+//       <h1>${otp}</h1>
+//       <p>This OTP is valid for 5 minutes.</p>
+//     </div>
+//   `;
+
+//   const message = [
+//     `From: ${from}`,
+//     `To: ${to}`,
+//     `Subject: ASSAC | OTP Verification`,
+//     "MIME-Version: 1.0",
+//     "Content-Type: text/html; charset=UTF-8",
+//     "",
+//     html,
+//   ].join("\r\n");
+
+//   const raw = Buffer.from(message)
+//     .toString("base64")
+//     .replace(/\+/g, "-")
+//     .replace(/\//g, "_")
+//     .replace(/=+$/, "");
+
+//   await gmail.users.messages.send({
+//     userId: "me",
+//     requestBody: {
+//       raw,
+//     },
 //   });
 // }
 
-async function sendOtpEmail(to, otp) {
-  const from = process.env.GMAIL_USER;
-
-  const html = `
-    <div style="font-family: Arial, sans-serif">
-      <h2>ASSAC OTP Verification</h2>
-      <p>Your OTP is:</p>
-      <h1>${otp}</h1>
-      <p>This OTP is valid for 5 minutes.</p>
-    </div>
-  `;
-
-  const message = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ASSAC | OTP Verification`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/html; charset=UTF-8",
-    "",
-    html,
-  ].join("\r\n");
-
-  const raw = Buffer.from(message)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-  await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      raw,
-    },
-  });
-}
 
 // Fetch admin + keep client
 async function getAdminWithClient(email) {
