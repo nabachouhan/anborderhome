@@ -427,7 +427,7 @@
             </div>
             <h4 class="feature-title">Multi-Sensor Data Tier</h4>
             <p class="feature-text">Historical 1989 base data (Landsat) ,
-              2008 AVNIR data, post-2017 Sentinel-2 (~10m), PlanetScope (~3m)
+              2008 AVNIR data, post-2017 Sentinel-2 (~10m), PlanetScope (~3m) 2024 onwards
             </p>
           </div>
         </div>
@@ -486,19 +486,18 @@
           <div class="modal-nav-tabs">
             <button class="modal-tab-btn active" data-tab="tab-overview">Project Background</button>
             <button class="modal-tab-btn" data-tab="tab-methodology">Database & Methodology</button>
-            <button class="modal-tab-btn" data-tab="tab-deliverables">Software & Deliverables</button>
           </div>
 
           <!-- Tab 1: Project Background -->
           <div class="tab-content-panel active" id="tab-overview">
             <p class="text-light mb-3">
-              The project <strong>â€œDevelopment of Comprehensive Change and Encroachment Detection System using
-                Geospatial Technologyâ€</strong> monitors the interstate border between Assam and Nagaland, which spans
+              The project <strong>Development of Comprehensive Change and Encroachment Detection System using
+                Geospatial Technology</strong> monitors the interstate border between Assam and Nagaland, which spans
               512 km (434 km demarcated; 66,000 Ha disputed belt).
             </p>
             <div class="spec-item">
-              <h6>Dispute Sectors (A through F)</h6>
-              <p>The border is demarcated into six sectors: A, B, C, D, E, and F, covering Sivasagar, Golaghat, Jorhat,
+              <h6>Dispute Hotspots</h6>
+              <p>The border is demarcated into nine hotspots: covering Sivasagar, Golaghat, Jorhat,
                 and Karbi Anglong districts in Assam. Territorial claims lie prominently across the Disputed
                 Area Belt (DAB).</p>
             </div>
@@ -507,63 +506,30 @@
               <p>Four interim agreements signed in 1972 declared the reserve forests of Geleki, Abhoypur, Tiru Hills,
                 Dessoi Valley, and Doyang off-limits for unapproved development and road construction.</p>
             </div>
-            <div class="spec-item">
-              <h6>Observation AOI Buffer & Frequency</h6>
-              <p>Continuous observation spanning a 2 km buffer zone on both sides of the interstate border, updated at
-                monitoring intervals of once every three calendar months.</p>
-            </div>
           </div>
 
           <!-- Tab 2: Database & Methodology -->
           <div class="tab-content-panel" id="tab-methodology">
             <div class="spec-item">
               <h6>Base Year (1989) & Temporal Sensors</h6>
-              <p>Base year (January 1989) satellite imagery sourced from NRSC, Hyderabad using IRS-LISS II or Landsat TM
-                (~30m resolution). Intermediate mappings utilize IRS P6-LISS IV (2007â€“2008), with
-                post-2017 monitoring leveraging Sentinel-2 (~10m), Maxar high-resolution data (~50cm), and commercial
-                Pleiades/Airbus imagery for identified dispute hotspots.</p>
+              <p>Base year (January 1989) satellite imagery sourced from USGS/EarthExplorer Landsat (~30m resolution).
+                Intermediate mappings utilize AVNIR 2008 data, with
+                post-2017 monitoring leveraging Sentinel-2 (~10m), and PlanetScope 3m resolution satellite imagery.</p>
             </div>
             <div class="spec-item">
               <h6>Minimum Mapping Unit (MMU) & Transitions</h6>
               <p>Standardized MMU of 25 sq.m. The analysis tracks conversions including Forest to
                 Settlement/Built-up, Agriculture, Open Forest, and other rapid land-use shifts.</p>
             </div>
-            <div class="spec-item">
-              <h6>Image Preprocessing & UAV Deployment</h6>
-              <p>All rectification, contrast/brightness adjustments, and reprojection are performed in ERDAS
-                Imagine. Border vector files are harmonized with Survey of India (SOI) Naksha web portal
-                datasets. UAV surveys provide sub-decimeter surface validation over contested hotspot zones
-                where permitted.</p>
-            </div>
           </div>
 
-          <!-- Tab 3: Software & Deliverables -->
-          <div class="tab-content-panel" id="tab-deliverables">
-            <div class="spec-item">
-              <h6>Software Suite</h6>
-              <p>Spatial analysis and processing are conducted via ERDAS Imagine 2016, ArcGIS 10.4, and QGIS 3.22,
-                utilizing on-screen visual interpretation, Normalized Difference Vegetation Index (NDVI) analysis, and
-                automated/supervised change detection algorithms.</p>
-            </div>
-            <div class="spec-item">
-              <h6>Core Deliverables</h6>
-              <p>1. Base-year (1989) LULC map and subsequent quarterly change maps.<br>
-                2. Comprehensive GIS database containing spatial layers, temporal attributes, and metadata.<br>
-                3. Interactive Web-GIS Application deployed with user-friendly query functions for departmental
-                stakeholders.<br>
-                4. Final technical documentation covering spatial distribution of change areas, ground truthing
-                coordinates, and georeferenced field photos.</p>
-            </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Close</button>
           </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
   </div>
-
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
